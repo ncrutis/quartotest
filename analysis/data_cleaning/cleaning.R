@@ -135,7 +135,10 @@ mod_data2 <- mod_data %>%
   mutate(atc_codelist = gsub("| ", "", paste(unique(atc1), collapse =" | ")) ) %>%
   mutate(ema_codelist = gsub("| ", "", paste(unique(ema1), collapse =" | ")) ) %>%
   dplyr::select(-c(atc1, ema1)) %>%
-  ungroup()
+  ungroup() %>%
+  unique()
+
+
 
 
 write_csv(mod_data2, "data/ImmunoVax_ATCcodes.csv")

@@ -1,0 +1,116 @@
+---
+title: "Group Summaries"
+format: html
+editor: visual
+---
+
+```{r}
+#| echo: false
+library(tidyverse)
+#library(plyr)
+library(tidyr)
+library(dplyr)
+library(readxl)
+library(stringr)
+#library(magrittr)
+#library(stringi)
+library(janitor)
+library(Publish)
+```
+
+```{r}
+data <- read_csv("data/ImmunoVax_ATCcodes.csv") %>% 
+  dplyr::select(1:4,22:41) %>%
+  unique()
+```
+
+CTO group
+
+```{r}
+#| warning: false
+#| echo: false
+
+CTOgroup <- data %>% filter(ptgroup == "CTO") 
+```
+
+You can add options to executable code like this
+
+```{r}
+#| warning: false
+#| echo: false
+findimmsup_IAL <- paste(c("(?<=(?i)[MG])\\;",
+                          "(?<=(?i)[MG])\\,",
+                          "\\,\\s*(?=[A-Z])(?![^()]*\\))",
+                          "(?<=/(?i)[j|m|s|w|Mois|Jour|semaine|week|day](?-i))\\,*\\s(?=[A-Z][^top])",
+                          "(?<=/Jour)\\s(?=HCQ)",
+                          "\\s\\+\\s"), collapse="|")
+IALgroup <- mod_data %>% filter(ptgroup == "IAL") %>%
+  separate(`Immunosuppressive therapy`, str_c("immsup_", 1:4),
+           sep= findimmsup_IAL,
+           remove = F) %>%
+  pivot_longer(25:27, names_to = "name", values_to = "value") %>%
+  distinct() %>%
+  mutate(immsup_mg = str_extract(value, findmg),
+         immsup_dose = str_extract(value, finddose),
+         immsup_med = str_extract(value, "\\w+"))
+```
+
+```{r}
+#| warning: false
+#| echo: false
+```
+
+```{r}
+#| warning: false
+#| echo: false
+
+```
+
+```{r}
+#| warning: false
+#| echo: false
+findimmsup_HEM <- paste(c("\\,\\s(?=([A-Z]|[0-9]{4}\\:|2-|\\>))",
+                          "\\,(?=[A-Z])",
+                          "\\.\\s(?=[A-Z])",
+                          "\\s*\\+\\s*(?![^()]*\\))",
+                          "\\s(?i)(and|et|then|than|\\+)\\s(?=[A-Z])",
+                          "(?<=\\d{4})\\s*\\.\\s*(?=\\d{4})"), collapse="|")
+
+
+HEMgroup <- mod_data %>% filter(ptgroup == "HEM") %>%
+  separate(`Immunosuppressive therapy`, str_c("immsup_", 1:6),
+           sep= findimmsup_HEM,
+           remove = F) %>%
+  pivot_longer(25:27, names_to = "name", values_to = "value") %>%
+  distinct() %>%
+  mutate(immsup_mg = str_extract(value, findmg),
+         immsup_dose = str_extract(value, finddose),
+         immsup_med = str_extract(value, findmed))
+```
+
+```{r}
+#| warning: false
+#| echo: false
+
+ONMgroup <- data %>% filter(ptgroup == "ONM")  %>%
+  mutate(alk_agents = case_when(grepl("L01A", atc_codelist)| grepl("L01A", ema_codelist)  ~ 1,
+                                !grepl("L01A", atc_codelist)| !grepl("L01A", ema_codelist) ~ 0),
+         anti_metab= case_when(grepl("L01B", atc_codelist)| grepl("L01B", ema_codelist)  ~ 1,
+                                !grepl("L01B", atc_codelist)| !grepl("L01B", ema_codelist) ~ 0),
+         plant_alk = case_when(grepl("L01C", atc_codelist)| grepl("L01C", ema_codelist)  ~ 1,
+                                !grepl("L01C", atc_codelist)| !grepl("L01C", ema_codelist) ~ 0),
+         cytotox_antib = case_when(grepl("L01D", atc_codelist)| grepl("L01D", ema_codelist)  ~ 1,
+                                !grepl("L01D", atc_codelist)| !grepl("L01D", ema_codelist) ~ 0),
+          pk_inhib = case_when(grepl("L01E", atc_codelist)|grepl("L01E", ema_codelist) ~ 1,
+                              !grepl("L01E", atc_codelist)|!grepl("L01E", ema_codelist)~ 0),
+         mono_antib = case_when(grepl("L01F", atc_codelist)| grepl("L01F", ema_codelist)  ~ 1,
+                                !grepl("L01F", atc_codelist)| !grepl("L01F", ema_codelist) ~ 0),
+          other_antineo = case_when(grepl("L01X", atc_codelist)|grepl("L01X", ema_codelist) ~ 1,
+                              !grepl("L01X", atc_codelist)|!grepl("L01X", ema_codelist)~ 0)
+        )
+#table(ONMgroup$Disease, ONMgroup$mono_antib)
+
+univariateTable(Disease ~ mono_antib + pk_inhib + plant_alk +
+                  cytotox_antib + pk_inhib + mono_antib + other_antineo,
+                data = ONMgroup)
+```
