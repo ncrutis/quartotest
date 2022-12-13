@@ -1,0 +1,4 @@
+project:
+  output-dir: derived_data
+  pre-render: 
+   - functions/R_functions/descriptive_Table_func.R

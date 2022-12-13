@@ -1,4 +1,4 @@
 project:
-  output-dir: outputs
+  output-dir: analysis/derived_data
   pre-render: 
    - analysis/data_cleaning/cleaning.R

@@ -7,26 +7,25 @@ editor: visual
 ```{r}
 #| echo: false
 #| warning: false
-library(tidyverse)
-#library(plyr)
-library(tidyr)
-library(dplyr)
-library(readxl)
-library(stringr)
-#library(magrittr)
-#library(stringi)
-library(janitor)
-library(Publish)
+source("R_functions/project_libraries.R")
+source("R_functions/descriptive_Table_func.R")
 ```
 
 ```{r}
 #| warning: false
 #| echo: false
 
-setwd("/home/ni3853/Documents/quartoproj")
-data <- read_csv("data/ImmunoVax_ATCcodes.csv") %>% 
+
+data <- clean_names(read_csv("derived_data/ImmunoVax_ATCcodes.csv")) %>% 
   dplyr::select(1:4,22:41) %>%
+  mutate(no_treat = case_when(grepl("No TTT", immunosuppressive_therapy) ~ 1,
+                              !grepl("No TTT", immunosuppressive_therapy) ~ 0,
+                              currently_treated == "No" ~ 1 ,
+                              currently_treated != "No" ~ 0)) %>%
   unique()
+
+
+
 ```
 
 ```{r}
@@ -58,25 +57,60 @@ IALgroup <- data %>% filter(ptgroup == "IAL")
 #| warning: false
 #| echo: false
 
-HEMgroup <- data %>% filter(ptgroup == "HEM")  %>%
-  mutate(alk_agents = case_when(grepl("L01A", atc_codelist)| grepl("L01A", ema_codelist)  ~ 1,
-                                !grepl("L01A", atc_codelist)| !grepl("L01A", ema_codelist) ~ 0),
-         anti_metab= case_when(grepl("L01B", atc_codelist)| grepl("L01B", ema_codelist)  ~ 1,
-                                !grepl("L01B", atc_codelist)| !grepl("L01B", ema_codelist) ~ 0),
-         plant_alk = case_when(grepl("L01C", atc_codelist)| grepl("L01C", ema_codelist)  ~ 1,
-                                !grepl("L01C", atc_codelist)| !grepl("L01C", ema_codelist) ~ 0),
-         cytotox_antib = case_when(grepl("L01D", atc_codelist)| grepl("L01D", ema_codelist)  ~ 1,
-                                !grepl("L01D", atc_codelist)| !grepl("L01D", ema_codelist) ~ 0),
-          pk_inhib = case_when(grepl("L01E", atc_codelist)|grepl("L01E", ema_codelist) ~ 1,
-                              !grepl("L01E", atc_codelist)|!grepl("L01E", ema_codelist)~ 0),
-         mono_antib = case_when(grepl("L01F", atc_codelist)| grepl("L01F", ema_codelist)  ~ 1,
-                                !grepl("L01F", atc_codelist)| !grepl("L01F", ema_codelist) ~ 0),
-          other_antineo = case_when(grepl("L01X", atc_codelist)|grepl("L01X", ema_codelist) ~ 1,
-                              !grepl("L01X", atc_codelist)|!grepl("L01X", ema_codelist)~ 0))
+HEMgroup <- data %>% filter(ptgroup == "HEM")   %>%
+  mutate(L01A_alk_agents = case_when(grepl("L01A", atc_codelist)| grepl("L01A", ema_codelist)  ~ 1,
+                                !grepl("L01A", atc_codelist)| !grepl("L01A", ema_codelist) ~ 0,
+                                currently_treated == "No" ~ 0),
+         L01B_anti_metab= case_when(grepl("L01B", atc_codelist)| grepl("L01B", ema_codelist)  ~ 1,
+                                 !grepl("L01B", atc_codelist)| !grepl("L01B", ema_codelist) ~ 0,
+                               currently_treated == "No" ~ 0),
+          L01E_pk_inhib = case_when(currently_treated == "Yes" & 
+                                 type_of_medication == "Tyrosine kinase inhibitor TKI"| 
+                                 is.na(currently_treated) & 
+                                 type_of_medication == "Tyrosine kinase inhibitor TKI" ~ 1,
+                               grepl("L01E", atc_codelist) | grepl("L01E", ema_codelist) ~ 1,
+                              !grepl("L01E", atc_codelist)| !grepl("L01E", ema_codelist) ~ 0,
+                              grepl("CDK 4inhib", immunosuppressive_therapy) &
+                                currently_treated == "Yes" | is.na(currently_treated) ~ 1,
+                                currently_treated == "No" ~ 0),
+         
+         L01F_mono_antib = case_when(currently_treated == "Yes" &
+                                  type_of_medication == "Anti-HER2 antibody therapy"|
+                                  type_of_medication == "Antibody-drug conjugate" |
+                                  type_of_medication == "VEGF inhibitor"   ~ 1,
+                                is.na(currently_treated) & 
+                                 type_of_medication == "Anti-HER2 antibody therapy"|
+                                  type_of_medication == "Antibody-drug conjugate" |
+                                  type_of_medication == "VEGF inhibitor"  ~ 1,
+                                grepl("L01F", atc_codelist)| grepl("L01F", ema_codelist)  ~ 1,
+                                !grepl("L01F", atc_codelist)| !grepl("L01F", ema_codelist) ~ 0,
+                                currently_treated == "No" ~ 0),
+          L01X_other_antineo = case_when(currently_treated == "Yes" & 
+                                 type_of_medication == "PARP inhibitor" ~ 1,
+                               is.na(currently_treated) & 
+                                 type_of_medication == "PARP inhibitor" ~ 1,
+                               grepl("L01X", atc_codelist)|grepl("L01X", ema_codelist) ~ 1,
+                              !grepl("L01X", atc_codelist)|!grepl("L01X", ema_codelist)~ 0,
+                                currently_treated == "No" ~ 0),
+         L04A_immnosup = case_when( grepl("L04A", atc_codelist)|grepl("L04A", ema_codelist) ~ 1,
+                              !grepl("L04A", atc_codelist)|!grepl("L04A", ema_codelist)~ 0,))
 
-univariateTable( ~ mono_antib + pk_inhib + plant_alk +
-                  cytotox_antib + pk_inhib + mono_antib + other_antineo,
-                data = HEMgroup)
+# univariateTable( ~ L01A_alk_agents +  
+#                   L01E_pk_inhib + L01F_mono_antib + L01X_other_antineo  + L04A_immnosup,
+#                 data = HEMgroup)
+
+desc_table_bygroup(dfr = HEMgroup,
+                      vars = c("no_treat", "L01A_alk_agents" ,  "L01E_pk_inhib" ,
+                               "L01F_mono_antib" , "L01X_other_antineo" , "L04A_immnosup"),
+                     namsvars = c("No Treatment", "L01A: Alkylating Agents", "L01E: Protein Kinase Inhibitors",
+                                  "L01F: Monocloncal Antibodies", "L01X: Other Antineoplastics","L04A: Immunosuppressants"),
+                   group= "disease",
+                   compareGroups=F,
+                   na.rm=F,
+                   digits=4) %>%
+  mutate(Variable = lag(Variable, 2)) %>%
+  filter(Level == "1" ) %>%
+  dplyr::select(-Level)
 ```
 
 ```{r}
@@ -84,25 +118,81 @@ univariateTable( ~ mono_antib + pk_inhib + plant_alk +
 #| echo: false
 
 ONMgroup <- data %>% filter(ptgroup == "ONM")  %>%
-  mutate(alk_agents = case_when(grepl("L01A", atc_codelist)| grepl("L01A", ema_codelist)  ~ 1,
-                                !grepl("L01A", atc_codelist)| !grepl("L01A", ema_codelist) ~ 0),
-         anti_metab= case_when(grepl("L01B", atc_codelist)| grepl("L01B", ema_codelist)  ~ 1,
-                                !grepl("L01B", atc_codelist)| !grepl("L01B", ema_codelist) ~ 0),
-         plant_alk = case_when(grepl("L01C", atc_codelist)| grepl("L01C", ema_codelist)  ~ 1,
-                                !grepl("L01C", atc_codelist)| !grepl("L01C", ema_codelist) ~ 0),
-         cytotox_antib = case_when(grepl("L01D", atc_codelist)| grepl("L01D", ema_codelist)  ~ 1,
-                                !grepl("L01D", atc_codelist)| !grepl("L01D", ema_codelist) ~ 0),
-          pk_inhib = case_when(grepl("L01E", atc_codelist)|grepl("L01E", ema_codelist) ~ 1,
-                              !grepl("L01E", atc_codelist)|!grepl("L01E", ema_codelist)~ 0),
-         mono_antib = case_when(grepl("L01F", atc_codelist)| grepl("L01F", ema_codelist)  ~ 1,
-                                !grepl("L01F", atc_codelist)| !grepl("L01F", ema_codelist) ~ 0),
-          other_antineo = case_when(grepl("L01X", atc_codelist)|grepl("L01X", ema_codelist) ~ 1,
-                              !grepl("L01X", atc_codelist)|!grepl("L01X", ema_codelist)~ 0)
+  mutate(L01A_alk_agents = case_when(grepl("L01A", atc_codelist)| grepl("L01A", ema_codelist)  ~ 1,
+                                !grepl("L01A", atc_codelist)| !grepl("L01A", ema_codelist) ~ 0,
+                                currently_treated == "No" ~ 0),
+         # L01B_anti_metab= case_when(grepl("L01B", atc_codelist)| grepl("L01B", ema_codelist)  ~ 1,
+         #                        !grepl("L01B", atc_codelist)| !grepl("L01B", ema_codelist) ~ 0,
+         #                        currently_treated == "No" ~ 0),
+         L01C_plant_alk = case_when(grepl("L01C", atc_codelist)| grepl("L01C", ema_codelist)  ~ 1,
+                                !grepl("L01C", atc_codelist)| !grepl("L01C", ema_codelist) ~ 0,
+                                currently_treated == "No" ~ 0),
+         L01D_cytotox_antib = case_when(grepl("L01D", atc_codelist)| grepl("L01D", ema_codelist) ~ 1,
+                                !grepl("L01D", atc_codelist)| !grepl("L01D", ema_codelist) ~ 0,
+                                currently_treated == "No" ~ 0),
+         
+          L01E_pk_inhib = case_when(currently_treated == "Yes" & 
+                                 type_of_medication == "Tyrosine kinase inhibitor TKI"| 
+                                 is.na(currently_treated) & 
+                                 type_of_medication == "Tyrosine kinase inhibitor TKI" ~ 1,
+                               grepl("L01E", atc_codelist) | grepl("L01E", ema_codelist) ~ 1,
+                              !grepl("L01E", atc_codelist)| !grepl("L01E", ema_codelist) ~ 0,
+                              grepl("CDK 4inhib", immunosuppressive_therapy) &
+                                currently_treated == "Yes" | is.na(currently_treated) ~ 1,
+                                currently_treated == "No" ~ 0),
+         
+         L01F_mono_antib = case_when(currently_treated == "Yes" &
+                                  type_of_medication == "Anti-HER2 antibody therapy"|
+                                  type_of_medication == "Antibody-drug conjugate" |
+                                  type_of_medication == "VEGF inhibitor"   ~ 1,
+                                is.na(currently_treated) & 
+                                 type_of_medication == "Anti-HER2 antibody therapy"|
+                                  type_of_medication == "Antibody-drug conjugate" |
+                                  type_of_medication == "VEGF inhibitor"  ~ 1,
+                                grepl("L01F", atc_codelist)| grepl("L01F", ema_codelist)  ~ 1,
+                                !grepl("L01F", atc_codelist)| !grepl("L01F", ema_codelist) ~ 0,
+                                currently_treated == "No" ~ 0),
+          L01X_other_antineo = case_when(currently_treated == "Yes" & 
+                                 type_of_medication == "PARP inhibitor" ~ 1,
+                               is.na(currently_treated) & 
+                                 type_of_medication == "PARP inhibitor" ~ 1,
+                               grepl("L01X", atc_codelist)|grepl("L01X", ema_codelist) ~ 1,
+                              !grepl("L01X", atc_codelist)|!grepl("L01X", ema_codelist)~ 0,
+                                currently_treated == "No" ~ 0),
+         L02B_horm_antag = case_when( grepl("L02B", atc_codelist)|grepl("L02B", ema_codelist) ~ 1,
+                              !grepl("L02B", atc_codelist)|!grepl("L02B", ema_codelist)~ 0,
+                               currently_treated == "No" ~ 0),
+         L02A_hormones = case_when( grepl("L02A", atc_codelist)|grepl("L02A", ema_codelist) ~ 1,
+                              !grepl("L02A", atc_codelist)|!grepl("L02A", ema_codelist)~ 0,
+                               currently_treated == "No" ~ 0),
+         L04A_immsup = case_when( grepl("L04A", atc_codelist)|grepl("L04A", ema_codelist) ~ 1,
+                              !grepl("L04A", atc_codelist)|!grepl("L04A", ema_codelist)~ 0,
+                               currently_treated == "No" ~ 0)
+         
         )
 #table(ONMgroup$Disease, ONMgroup$mono_antib)
-univariateTable( ~Disease,
-                data = ONMgroup)
-univariateTable( ~ mono_antib + pk_inhib + plant_alk +
-                  cytotox_antib + pk_inhib + mono_antib + other_antineo,
-                data = ONMgroup)
+# univariateTable( ~disease,
+#                 data = ONMgroup)
+# univariateTable( ~ L01A_alk_agents +  L01C_plant_alk + L01D_cytotox_antib + 
+#                   L01E_pk_inhib + L01F_mono_antib + L01X_other_antineo +
+#                    L02B_horm_antag + L02A_hormones + no_treat,
+#                 data = ONMgroup)
+
+desc_table_bygroup(dfr = ONMgroup,
+                      vars = c("no_treat", "L01A_alk_agents","L01C_plant_alk",
+                               "L01D_cytotox_antib", "L01E_pk_inhib" ,
+                               "L01F_mono_antib" , "L01X_other_antineo",
+                               "L02B_horm_antag", "L02A_hormones", "L04A_immsup"),
+                     namsvars = c("No Treatment", "L01A: Alkylating Agents", "L01C: Plant Alkyloids", "L01D: Cytotoxic Antibiotics", "L01E: Protein Kinase Inhibitors", "L01F: Monocloncal Antibodies", "L01X: Other Antineoplastics", "L02B: Hormone Anatagonists", 
+                                  "L02A: Hormones", "L04A: Immunosuppressants"),
+                   group= "disease",
+                   compareGroups=F,
+                   na.rm=F,
+                   digits=4) %>%
+  mutate(Variable = lag(Variable, 2)) %>%
+  filter(Level == "1" ) %>%
+  dplyr::select(-Level)
+
+
+
 ```
