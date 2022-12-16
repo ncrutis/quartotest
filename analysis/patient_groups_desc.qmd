@@ -67,8 +67,8 @@ Free Text Classifiers | Updated Treatment Classification|
 | "SINCE"              |  Yes                            |
 | "TODAY"              |  Yes                            |
 | "UNTIL NOW"          |  Yes                            |
-| identifiable last treatment date  < 60 days before first visit date    |  Yes |
-| identifiable last treatment date  > 60 days before first visit date    |  No |
+| identifiable last treatment date  > 60 days before first visit date    |  Yes |
+| identifiable last treatment date  < 60 days before first visit date    |  No |
 | Organ Transplant Group   |  Yes |
 
 
