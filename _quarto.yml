@@ -2,3 +2,6 @@ project:
   output-dir: outputs
   pre-render: 
    - analysis/data_cleaning/cleaning.R
+format: 
+  html:
+    page-layout: full

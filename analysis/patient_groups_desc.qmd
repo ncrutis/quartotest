@@ -1,7 +1,10 @@
 ---
-title: "Group Summaries"
-format: html
-editor: visual
+title: "ImmunoVax Immunosuppressive Medication Report"
+format:
+  html: 
+    fontsize: 1.1em
+    linestretch: 1.7
+    tbl-colwidths: [1,1,1]
 ---
 
 ```{r}
@@ -16,17 +19,99 @@ source("R_functions/descriptive_Table_func.R")
 #| echo: false
 
 
+endterms <- c("CURRENTLY UNTREATED",  "NO TTT", "NO CANCER TTT", "REMISSION")
+ongoingterms <- c("ONGOING", "CURRENTLY", "SINCE", "FROM", "TODAY", "UNTIL NOW")
+dates <- paste(c( "19\\d{2}|20\\d{2}|\\d{2}\\.\\d{2}\\.\\d{2,}|(?!=\\.)\\d{2}\\.2\\d{1}(?!\\d{2})|(?!=\\.)\\d{2}\\.9\\d{1}(?!\\d{2})"  ), collapse="|")
+
 data <- clean_names(read_csv("derived_data/ImmunoVax_ATCcodes.csv")) %>% 
-  dplyr::select(1:4,22:41) %>%
+  group_by(ptid_4) %>%
+  mutate(followup_st =min(as.Date(analysis_date, format= "%d/%b/%Y"))-60) %>%
+   dplyr::select(1:4,22:30, 37:42) %>%
+  mutate(last_trt = str_extract_all(immunosuppressive_therapy, dates)) %>%
+  unnest(cols= last_trt, keep_empty = TRUE) %>%
+  mutate(last_trt = parse_date_time(last_trt, c("dmy", "my", "Y")) ) %>%
+  group_by(ptid_4) %>%
+  mutate(last_trt =max(last_trt)) %>%
+  ungroup() %>%
   mutate(no_treat = case_when(grepl("No TTT", immunosuppressive_therapy) ~ 1,
                               !grepl("No TTT", immunosuppressive_therapy) ~ 0,
                               currently_treated == "No" ~ 1 ,
                               currently_treated != "No" ~ 0)) %>%
+  mutate(currently_treated_new = case_when(
+    currently_treated =="Yes" ~ "Yes",
+     is.na(currently_treated) & grepl(paste(ongoingterms, collapse = "|"),toupper(immunosuppressive_therapy)) ~ "Yes",
+     currently_treated == "No" & grepl(paste(endterms, collapse = "|"),toupper(immunosuppressive_therapy)) ~ "No",
+    is.na(currently_treated) & grepl(paste(endterms, collapse = "|"),toupper(immunosuppressive_therapy)) ~ "No",
+     currently_treated == "No" & is.na(immunosuppressive_therapy) ~ "No",
+     currently_treated == "No" & last_trt < followup_st ~ "No",
+    currently_treated == "No" & is.na(last_trt)  ~ "No" ,
+    is.na(currently_treated) & last_trt > followup_st ~ "Yes",
+    is.na(currently_treated) & ptgroup == "CTO"  ~ "Yes"
+    #is.na(currently_treated) & last_trt < year(followup_st) &
+    
+  )) %>%
+ #filter(is.na(currently_treated_new)) %>%
   unique()
 
 
-
 ```
+Updated Treatment Classification Rules for Unknown Status
+
+Free Text Classifiers | Updated Treatment Classification|
+|:--|:-|
+|"CURRENTLY UNTREATED" |  No                             |
+| "NO TTT"             |  No                             |
+| "REMISSION"          |  No                             |
+| "ONGOING"            |  Yes                            |
+| "CURRENTLY"          |  Yes                            |
+| "SINCE"              |  Yes                            |
+| "TODAY"              |  Yes                            |
+| "UNTIL NOW"          |  Yes                            |
+| identifiable last treatment date  < 60 days before first visit date    |  Yes |
+| identifiable last treatment date  > 60 days before first visit date    |  No |
+| Organ Transplant Group   |  Yes |
+
+
+
+
+
+```{r}
+#| warning: false
+#| echo: false
+# summary(desc_table_bygroup(dfr = data,
+#                       vars = c("currently_treated", "currently_treated_new"),
+#                      namsvars = c("Original Treatment Classification", "New Treatment Classification"),
+#                    group= "ptgroup",
+#                    compareGroups=F,
+#                    na.rm=F,
+#                    digits=4))
+
+grouptot <- paste("Total n=", length(unique(data$ptid_4)), sep="")
+newnames <- data %>% group_by(ptgroup) %>%
+  summarise( n= n(),  .groups = "keep") %>% 
+  mutate(names = paste(ptgroup, " n=", n, sep = ""))
+
+newnames <- as.vector(newnames$names)
+newnames <- c(" ", "Currently Treated", newnames, grouptot)
+tab<- summary(univariateTable(ptgroup~currently_treated+currently_treated_new,
+                data=data,
+currently_treated="Original Treatment Classification",
+currently_treated_new="New Treatment Classification",
+
+ptgroup.CTL="Controls",
+ptgroup.CTO="Organ Transplant",
+ptgroup.HEM="Haematology",
+ptgroup.IAL="Immunodeficiency/ Systemic Inflammatory Disease",
+ptgroup.ONM="Oncology",
+compare.groups = FALSE))
+
+knitr::kable(tab, digits = getOption("digits"), row.names = NA,
+  col.names = c(paste(newnames)), caption = NULL, label = NULL,
+  format.args = list(), escape = TRUE)
+```
+
+
+
 
 ```{r}
 #| warning: false
@@ -85,32 +170,61 @@ HEMgroup <- data %>% filter(ptgroup == "HEM")   %>%
                                 grepl("L01F", atc_codelist)| grepl("L01F", ema_codelist)  ~ 1,
                                 !grepl("L01F", atc_codelist)| !grepl("L01F", ema_codelist) ~ 0,
                                 currently_treated == "No" ~ 0),
-          L01X_other_antineo = case_when(currently_treated == "Yes" & 
+          L01X_other_antineo = factor(case_when(currently_treated == "Yes" & 
                                  type_of_medication == "PARP inhibitor" ~ 1,
                                is.na(currently_treated) & 
                                  type_of_medication == "PARP inhibitor" ~ 1,
                                grepl("L01X", atc_codelist)|grepl("L01X", ema_codelist) ~ 1,
                               !grepl("L01X", atc_codelist)|!grepl("L01X", ema_codelist)~ 0,
-                                currently_treated == "No" ~ 0),
+                                currently_treated == "No" ~ 0), levels = c(0, 1)),
          L04A_immnosup = case_when( grepl("L04A", atc_codelist)|grepl("L04A", ema_codelist) ~ 1,
                               !grepl("L04A", atc_codelist)|!grepl("L04A", ema_codelist)~ 0,))
 
-# univariateTable( ~ L01A_alk_agents +  
-#                   L01E_pk_inhib + L01F_mono_antib + L01X_other_antineo  + L04A_immnosup,
-#                 data = HEMgroup)
+# univariateTable( disease ~ L01A_alk_agents +  
+#                    L01E_pk_inhib + L01F_mono_antib + L01X_other_antineo  + L04A_immnosup,
+#                  data = HEMgroup)
+ # desc_table_bygroup(dfr = HEMgroup,
+ #                      vars = c("no_treat", "L01A_alk_agents" ,  "L01E_pk_inhib" ,
+ #                               "L01F_mono_antib" , "L01X_other_antineo" , "L04A_immnosup"),
+ #                     namsvars = c("No Treatment", "L01A: Alkylating Agents", "L01E: Protein Kinase Inhibitors",
+ #                                  "L01F: Monocloncal Antibodies", "L01X: Other Antineoplastics","L04A: Immunosuppressants"),
+ #                   group= "disease",
+ #                   compareGroups=F,
+ #                   na.rm=F,
+ #                   digits=4)  %>% 
+ #  filter(Level != "Missing values" ) %>%
+ #  mutate(Variable = case_when(Level != "n" & lag(Level,1)=="n" ~ lag(Variable, 1),
+ #                              Level != "n" & lag(Level,2)=="n" ~ lag(Variable, 2))) %>%
+ #  filter(Level != "n") %>%
+ #  group_by(Variable) %>%
+ #  arrange(Level, .by_group = TRUE) %>%
+ #  mutate(Variable = ifelse(Level == "0", "", Variable))
 
-desc_table_bygroup(dfr = HEMgroup,
-                      vars = c("no_treat", "L01A_alk_agents" ,  "L01E_pk_inhib" ,
-                               "L01F_mono_antib" , "L01X_other_antineo" , "L04A_immnosup"),
-                     namsvars = c("No Treatment", "L01A: Alkylating Agents", "L01E: Protein Kinase Inhibitors",
-                                  "L01F: Monocloncal Antibodies", "L01X: Other Antineoplastics","L04A: Immunosuppressants"),
-                   group= "disease",
-                   compareGroups=F,
-                   na.rm=F,
-                   digits=4) %>%
-  mutate(Variable = lag(Variable, 2)) %>%
-  filter(Level == "1" ) %>%
-  dplyr::select(-Level)
+
+  # filter(Level != "Missing values") %>%
+  # arrange(Variable, Level)
+# %>%
+#   mutate(Variable = ifelse(Level == "1",lag(Variable, 2), Variable)) 
+#%>%
+  #filter(Level == "1" ) %>%
+  #dplyr::select(-Level) 
+
+
+```
+
+
+```{r}
+#| warning: false
+#| echo: false
+# desc_table_bygroup(dfr = HEMgroup,
+#                       vars = c("no_treat", "L01A_alk_agents" ,  "L01E_pk_inhib" ,
+#                                "L01F_mono_antib" , "L01X_other_antineo" , "L04A_immnosup"),
+#                      namsvars = c("No Treatment", "L01A: Alkylating Agents", "L01E: Protein Kinase Inhibitors",
+#                                   "L01F: Monocloncal Antibodies", "L01X: Other Antineoplastics","L04A: Immunosuppressants"),
+#                    groupvar= "disease",
+#                    compareGroups=F,
+#                    na.rm=F,
+#                    digits=4)  
 ```
 
 ```{r}
@@ -178,21 +292,54 @@ ONMgroup <- data %>% filter(ptgroup == "ONM")  %>%
 #                    L02B_horm_antag + L02A_hormones + no_treat,
 #                 data = ONMgroup)
 
-desc_table_bygroup(dfr = ONMgroup,
-                      vars = c("no_treat", "L01A_alk_agents","L01C_plant_alk",
-                               "L01D_cytotox_antib", "L01E_pk_inhib" ,
-                               "L01F_mono_antib" , "L01X_other_antineo",
-                               "L02B_horm_antag", "L02A_hormones", "L04A_immsup"),
-                     namsvars = c("No Treatment", "L01A: Alkylating Agents", "L01C: Plant Alkyloids", "L01D: Cytotoxic Antibiotics", "L01E: Protein Kinase Inhibitors", "L01F: Monocloncal Antibodies", "L01X: Other Antineoplastics", "L02B: Hormone Anatagonists", 
-                                  "L02A: Hormones", "L04A: Immunosuppressants"),
-                   group= "disease",
-                   compareGroups=F,
-                   na.rm=F,
-                   digits=4) %>%
-  mutate(Variable = lag(Variable, 2)) %>%
-  filter(Level == "1" ) %>%
-  dplyr::select(-Level)
+# desc_table_bygroup(dfr = ONMgroup,
+#                       vars = c("no_treat", "L01A_alk_agents","L01C_plant_alk",
+#                                "L01D_cytotox_antib", "L01E_pk_inhib" ,
+#                                "L01F_mono_antib" , "L01X_other_antineo",
+#                                "L02B_horm_antag", "L02A_hormones", "L04A_immsup"),
+#                      namsvars = c("No Treatment", "L01A: Alkylating Agents", "L01C: Plant Alkyloids", "L01D: Cytotoxic Antibiotics", "L01E: Protein Kinase Inhibitors", "L01F: Monocloncal Antibodies", "L01X: Other Antineoplastics", "L02B: Hormone Anatagonists", 
+#                                   "L02A: Hormones", "L04A: Immunosuppressants"),
+#                    group= "disease",
+#                    compareGroups=F,
+#                    na.rm=F,
+#                    digits=4) %>%
+#   mutate(Variable = lag(Variable, 2)) %>%
+#   filter(Level == "1" ) %>%
+#   dplyr::select(-Level)
 
 
 
 ```
+
+
+```{r}
+#| warning: false
+#| echo: false
+# grouptot <- paste("Total n=", length(unique(ONMgroup$ptid_4)), sep="")
+# newnames <- ONMgroup %>%
+#   pivot_longer(c(21,23:31), names_to = "namesvar",values_to = "vals") %>%
+#   group_by(namesvar) %>%
+#   summarise( n= n(), .groups = "keep") %>%
+#   mutate(names = paste(namesvar, " n=", n, sep = ""))
+# 
+# newnames <- as.vector(newnames$names)
+# newnames <- c(" ", "Currently Treated", newnames, grouptot)
+# 
+# tabONM <- ONMgroup %>%
+#    pivot_longer(c(21,23:31), names_to = "namesvar",values_to = "vals")
+# 
+# 
+# tabONM<- summary(univariateTable(namesvar ~ currently_treated+currently_treated_new,
+#                 data=tabONM,
+# currently_treated="Original Treatment Classification",
+# currently_treated_new="New Treatment Classification",
+# 
+# compare.groups = FALSE))
+# 
+# knitr::kable(tabONM, digits = getOption("digits"), row.names = NA,
+#   col.names = c(paste(newnames)), caption = NULL, label = NULL,
+#   format.args = list(), escape = TRUE)
+```
+
+
+
