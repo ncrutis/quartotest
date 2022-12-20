@@ -67,8 +67,8 @@ Free Text Classifiers | Updated Treatment Classification|
 | "SINCE"              |  Yes                            |
 | "TODAY"              |  Yes                            |
 | "UNTIL NOW"          |  Yes                            |
-| identifiable last treatment date  > 60 days before first visit date    |  Yes |
-| identifiable last treatment date  < 60 days before first visit date    |  No |
+| last treatment date less than 60 days before first visit date    |  Yes |
+| last treatment date more than 60 days before first visit date    |  No |
 | Organ Transplant Group   |  Yes |
 
 
@@ -234,56 +234,55 @@ HEMgroup <- data %>% filter(ptgroup == "HEM")   %>%
 ONMgroup <- data %>% filter(ptgroup == "ONM")  %>%
   mutate(L01A_alk_agents = case_when(grepl("L01A", atc_codelist)| grepl("L01A", ema_codelist)  ~ 1,
                                 !grepl("L01A", atc_codelist)| !grepl("L01A", ema_codelist) ~ 0,
-                                currently_treated == "No" ~ 0),
+                                currently_treated_new == "No" ~ 0),
          # L01B_anti_metab= case_when(grepl("L01B", atc_codelist)| grepl("L01B", ema_codelist)  ~ 1,
          #                        !grepl("L01B", atc_codelist)| !grepl("L01B", ema_codelist) ~ 0,
-         #                        currently_treated == "No" ~ 0),
+         #                        currently_treated_new == "No" ~ 0),
          L01C_plant_alk = case_when(grepl("L01C", atc_codelist)| grepl("L01C", ema_codelist)  ~ 1,
                                 !grepl("L01C", atc_codelist)| !grepl("L01C", ema_codelist) ~ 0,
-                                currently_treated == "No" ~ 0),
+                                currently_treated_new == "No" ~ 0),
          L01D_cytotox_antib = case_when(grepl("L01D", atc_codelist)| grepl("L01D", ema_codelist) ~ 1,
                                 !grepl("L01D", atc_codelist)| !grepl("L01D", ema_codelist) ~ 0,
-                                currently_treated == "No" ~ 0),
+                                currently_treated_new == "No" ~ 0),
          
-          L01E_pk_inhib = case_when(currently_treated == "Yes" & 
+          L01E_pk_inhib = case_when(currently_treated_new == "Yes" & 
                                  type_of_medication == "Tyrosine kinase inhibitor TKI"| 
                                  is.na(currently_treated) & 
                                  type_of_medication == "Tyrosine kinase inhibitor TKI" ~ 1,
                                grepl("L01E", atc_codelist) | grepl("L01E", ema_codelist) ~ 1,
                               !grepl("L01E", atc_codelist)| !grepl("L01E", ema_codelist) ~ 0,
                               grepl("CDK 4inhib", immunosuppressive_therapy) &
-                                currently_treated == "Yes" | is.na(currently_treated) ~ 1,
-                                currently_treated == "No" ~ 0),
+                                currently_treated_new == "Yes" | is.na(currently_treated) ~ 1,
+                                currently_treated_new == "No" ~ 0),
          
-         L01F_mono_antib = case_when(currently_treated == "Yes" &
+         L01F_mono_antib = case_when(currently_treated_new == "Yes" &
                                   type_of_medication == "Anti-HER2 antibody therapy"|
                                   type_of_medication == "Antibody-drug conjugate" |
                                   type_of_medication == "VEGF inhibitor"   ~ 1,
-                                is.na(currently_treated) & 
-                                 type_of_medication == "Anti-HER2 antibody therapy"|
-                                  type_of_medication == "Antibody-drug conjugate" |
-                                  type_of_medication == "VEGF inhibitor"  ~ 1,
                                 grepl("L01F", atc_codelist)| grepl("L01F", ema_codelist)  ~ 1,
                                 !grepl("L01F", atc_codelist)| !grepl("L01F", ema_codelist) ~ 0,
-                                currently_treated == "No" ~ 0),
-          L01X_other_antineo = case_when(currently_treated == "Yes" & 
+                                currently_treated_new == "No" ~ 0),
+          L01X_other_antineo = case_when(currently_treated_new == "Yes" & 
                                  type_of_medication == "PARP inhibitor" ~ 1,
                                is.na(currently_treated) & 
                                  type_of_medication == "PARP inhibitor" ~ 1,
                                grepl("L01X", atc_codelist)|grepl("L01X", ema_codelist) ~ 1,
                               !grepl("L01X", atc_codelist)|!grepl("L01X", ema_codelist)~ 0,
-                                currently_treated == "No" ~ 0),
+                                currently_treated_new == "No" ~ 0),
          L02B_horm_antag = case_when( grepl("L02B", atc_codelist)|grepl("L02B", ema_codelist) ~ 1,
                               !grepl("L02B", atc_codelist)|!grepl("L02B", ema_codelist)~ 0,
-                               currently_treated == "No" ~ 0),
+                               currently_treated_new == "No" ~ 0),
          L02A_hormones = case_when( grepl("L02A", atc_codelist)|grepl("L02A", ema_codelist) ~ 1,
                               !grepl("L02A", atc_codelist)|!grepl("L02A", ema_codelist)~ 0,
-                               currently_treated == "No" ~ 0),
+                               currently_treated_new == "No" ~ 0),
          L04A_immsup = case_when( grepl("L04A", atc_codelist)|grepl("L04A", ema_codelist) ~ 1,
                               !grepl("L04A", atc_codelist)|!grepl("L04A", ema_codelist)~ 0,
-                               currently_treated == "No" ~ 0)
+                               currently_treated_new == "No" ~ 0)
          
         )
+
+
+
 #table(ONMgroup$Disease, ONMgroup$mono_antib)
 # univariateTable( ~disease,
 #                 data = ONMgroup)
@@ -311,35 +310,92 @@ ONMgroup <- data %>% filter(ptgroup == "ONM")  %>%
 
 ```
 
-
+Antibody Response Differences in Treated vs Untreated Immunocompromised Patients (No Controls)
+during first 6 months of follow up 
 ```{r}
 #| warning: false
 #| echo: false
-# grouptot <- paste("Total n=", length(unique(ONMgroup$ptid_4)), sep="")
-# newnames <- ONMgroup %>%
-#   pivot_longer(c(21,23:31), names_to = "namesvar",values_to = "vals") %>%
-#   group_by(namesvar) %>%
-#   summarise( n= n(), .groups = "keep") %>%
-#   mutate(names = paste(namesvar, " n=", n, sep = ""))
+vax_resp_data <- clean_names(read_csv("derived_data/ImmunoVax_ATCcodes.csv")) %>%
+  group_by(ptid_4) %>%
+  mutate(visitct_ = as.numeric(factor(visit_time_point, levels=unique(visit_time_point)))) %>%
+  filter(visitct_ == 1 & visit_time_point == "V3" |
+           visitct_ == 2 & visit_time_point == "V4"|
+           visitct_ == 3 & visit_time_point == "V5") 
+
+
+
+meddata <- data %>%
+  dplyr::select(c(1, 22))
+
+
+vax_resp_data <- left_join(vax_resp_data, meddata, by = "ptid_4")  %>%
+  filter(!is.na(currently_treated_new)) %>% 
+  filter(ptgroup != "CTL")
+
+
+# ttest_cov2nw  <- as.data.frame(cbind(t.test(vax_resp_data$cov2nw ~ vax_resp_data$currently_treated_new))) %>% 
+#   rownames_to_column() %>% 
+#   filter(rowname == "p.value" | rowname == "estimate") %>%
+#   mutate(temp = ifelse(rowname== "estimate", V1, "")) %>%
+#   separate(temp, into= c("Unt", "Tr"),  sep = ",") %>%
+#   mutate(Antibody= ifelse(rowname == "p.value", "Wild Type", " "),
+#          Untreated = ifelse(rowname != "p.value", parse_number(Unt), " "),
+#          Treated = ifelse(rowname != "p.value", parse_number(Tr), " "),
+#          p.value = ifelse(rowname == "p.value", V1, " ")) %>%
+#   dplyr::select(5:8)
 # 
-# newnames <- as.vector(newnames$names)
-# newnames <- c(" ", "Currently Treated", newnames, grouptot)
+# ttest_cov2no  <- as.data.frame(cbind(t.test(vax_resp_data$cov2no ~ vax_resp_data$currently_treated_new))) %>% 
+#   rownames_to_column() %>% 
+#   filter(rowname == "p.value" | rowname == "estimate") %>%
+#   mutate(temp = ifelse(rowname== "estimate", V1, "")) %>%
+#   separate(temp, into= c("Unt", "Tr"),  sep = ",") %>%
+#   mutate(Antibody= ifelse(rowname == "p.value", "Omicron", " "),
+#          Untreated = ifelse(rowname != "p.value", parse_number(Unt), " "),
+#          Treated = ifelse(rowname != "p.value", parse_number(Tr),  " "),
+#          p.value = ifelse(rowname == "p.value", V1, " ")) %>%
+#   dplyr::select(5:8)
 # 
-# tabONM <- ONMgroup %>%
-#    pivot_longer(c(21,23:31), names_to = "namesvar",values_to = "vals")
-# 
-# 
-# tabONM<- summary(univariateTable(namesvar ~ currently_treated+currently_treated_new,
-#                 data=tabONM,
-# currently_treated="Original Treatment Classification",
-# currently_treated_new="New Treatment Classification",
-# 
-# compare.groups = FALSE))
-# 
-# knitr::kable(tabONM, digits = getOption("digits"), row.names = NA,
-#   col.names = c(paste(newnames)), caption = NULL, label = NULL,
-#   format.args = list(), escape = TRUE)
+# ttest_cov2nd  <- as.data.frame(cbind(t.test(vax_resp_data$cov2nd ~ vax_resp_data$currently_treated_new))) %>% 
+#   rownames_to_column() %>% 
+#   filter(rowname == "p.value" | rowname == "estimate") %>%
+#   mutate(temp = ifelse(rowname== "estimate", V1, "")) %>%
+#   separate(temp, into= c("Unt", "Tr"),  sep = ",") %>%
+#   mutate(Antibody= ifelse(rowname == "p.value", "Delta", " "),
+#          Untreated = ifelse(rowname != "p.value", parse_number(Unt), " "),
+#          Treated = ifelse(rowname != "p.value", parse_number(Tr), " "),
+#          p.value = ifelse(rowname == "p.value", V1, " ")) %>%
+#   dplyr::select(5:8)
+
+
+
+ttest_cov2nw  <- as.data.frame(cbind(t.test(vax_resp_data$cov2nw ~ vax_resp_data$currently_treated_new))) %>% 
+  rownames_to_column() %>% 
+  mutate(Antibody= ifelse(rowname == "p.value", "Wild Type", " "))
+
+ttest_cov2no  <- as.data.frame(cbind(t.test(vax_resp_data$cov2no ~ vax_resp_data$currently_treated_new))) %>% 
+  rownames_to_column() %>% 
+  mutate(Antibody= ifelse(rowname == "p.value", "Omicron", " "))
+
+ttest_cov2nd  <- as.data.frame(cbind(t.test(vax_resp_data$cov2nd ~ vax_resp_data$currently_treated_new))) %>% 
+  rownames_to_column() %>% 
+  mutate(Antibody= ifelse(rowname == "p.value", "Delta", " "))
+
+tab<- rbind(ttest_cov2nw, ttest_cov2nd, ttest_cov2no) %>% mutate(temp = ifelse(rowname== "estimate", V1, "")) %>%
+  filter(rowname == "p.value" | rowname == "estimate") %>%
+  separate(temp, into= c("Unt", "Tr"),  sep = ",") %>%
+  mutate(
+         Untreated = ifelse(rowname != "p.value", parse_number(Unt), " "),
+         Treated = ifelse(rowname != "p.value", parse_number(Tr), " "),
+         p.value = ifelse(rowname == "p.value", V1, " ")) %>%
+  dplyr::select(3,6:8) 
+
+
+knitr::kable(tab, digits = 3, row.names = NA,
+  col.names = NA , caption = NULL, label = NULL,
+  format.args = list(), escape = TRUE)
+
 ```
+
 
 
 

@@ -1,0 +1,64 @@
+---
+title: "ImmunoVax Immunosuppressive Medication Report"
+format:
+  html: 
+    fontsize: 1.1em
+    linestretch: 1.7
+    tbl-colwidths: [1,1,1]
+---
+
+```{r}
+#| echo: false
+#| warning: false
+source("R_functions/project_libraries.R")
+source("R_functions/descriptive_Table_func.R")
+```
+
+```{r}
+#| warning: false
+#| echo: false
+
+
+endterms <- c("CURRENTLY UNTREATED",  "NO TTT", "NO CANCER TTT", "REMISSION")
+ongoingterms <- c("ONGOING", "CURRENTLY", "SINCE", "FROM", "TODAY", "UNTIL NOW")
+dates <- paste(c( "19\\d{2}|20\\d{2}|\\d{2}\\.\\d{2}\\.\\d{2,}|(?!=\\.)\\d{2}\\.2\\d{1}(?!\\d{2})|(?!=\\.)\\d{2}\\.9\\d{1}(?!\\d{2})"  ), collapse="|")
+
+data <- clean_names(read_csv("derived_data/ImmunoVax_ATCcodes.csv")) %>% 
+  group_by(ptid_4) %>%
+  mutate(followup_st =min(as.Date(analysis_date, format= "%d/%b/%Y"))-60) %>%
+   dplyr::select(1:4,22:30, 37:42) %>%
+  mutate(last_trt = str_extract_all(immunosuppressive_therapy, dates)) %>%
+  unnest(cols= last_trt, keep_empty = TRUE) %>%
+  mutate(last_trt = parse_date_time(last_trt, c("dmy", "my", "Y")) ) %>%
+  group_by(ptid_4) %>%
+  mutate(last_trt =max(last_trt)) %>%
+  ungroup() %>%
+  mutate(no_treat = case_when(grepl("No TTT", immunosuppressive_therapy) ~ 1,
+                              !grepl("No TTT", immunosuppressive_therapy) ~ 0,
+                              currently_treated == "No" ~ 1 ,
+                              currently_treated != "No" ~ 0)) %>%
+  mutate(currently_treated_new = case_when(
+    currently_treated =="Yes" ~ "Yes",
+     is.na(currently_treated) & grepl(paste(ongoingterms, collapse = "|"),toupper(immunosuppressive_therapy)) ~ "Yes",
+     currently_treated == "No" & grepl(paste(endterms, collapse = "|"),toupper(immunosuppressive_therapy)) ~ "No",
+    is.na(currently_treated) & grepl(paste(endterms, collapse = "|"),toupper(immunosuppressive_therapy)) ~ "No",
+     currently_treated == "No" & is.na(immunosuppressive_therapy) ~ "No",
+     currently_treated == "No" & last_trt < followup_st ~ "No",
+    currently_treated == "No" & is.na(last_trt)  ~ "No" ,
+    is.na(currently_treated) & last_trt > followup_st ~ "Yes",
+    is.na(currently_treated) & ptgroup == "CTO"  ~ "Yes"
+    #is.na(currently_treated) & last_trt < year(followup_st) &
+    
+  )) %>%
+ #filter(is.na(currently_treated_new)) %>%
+  unique()
+
+
+```
+
+```{r}
+#| warning: false
+#| echo: false
+vax_resp_data <- clean_names(read_csv("derived_data/ImmunoVax_ATCcodes.csv"))
+
+```
