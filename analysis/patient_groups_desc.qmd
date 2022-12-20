@@ -397,5 +397,39 @@ knitr::kable(tab, digits = 3, row.names = NA,
 ```
 
 
+```{r}
+#| warning: false
+#| echo: false
+
+onmtest <- vax_resp_data %>%
+  filter(ptgroup == "ONM")
+
+
+ttest_cov2nw  <- as.data.frame(cbind(t.test(onmtest$cov2nw ~ onmtest$currently_treated_new))) %>% 
+  rownames_to_column() %>% 
+  mutate(Antibody= ifelse(rowname == "p.value", "Wild Type", " "))
+
+ttest_cov2no  <- as.data.frame(cbind(t.test(onmtest$cov2no ~ onmtest$currently_treated_new))) %>% 
+  rownames_to_column() %>% 
+  mutate(Antibody= ifelse(rowname == "p.value", "Omicron", " "))
+
+ttest_cov2nd  <- as.data.frame(cbind(t.test(onmtest$cov2nd ~ onmtest$currently_treated_new))) %>% 
+  rownames_to_column() %>% 
+  mutate(Antibody= ifelse(rowname == "p.value", "Delta", " "))
+
+tab<- rbind(ttest_cov2nw, ttest_cov2nd, ttest_cov2no) %>% mutate(temp = ifelse(rowname== "estimate", V1, "")) %>%
+  filter(rowname == "p.value" | rowname == "estimate") %>%
+  separate(temp, into= c("Unt", "Tr"),  sep = ",") %>%
+  mutate(
+         Untreated = ifelse(rowname != "p.value", parse_number(Unt), " "),
+         Treated = ifelse(rowname != "p.value", parse_number(Tr), " "),
+         p.value = ifelse(rowname == "p.value", V1, " ")) %>%
+  dplyr::select(3,6:8) 
+
+
+# knitr::kable(tab, digits = 3, row.names = NA,
+#   col.names = NA , caption = NULL, label = NULL,
+#   format.args = list(), escape = TRUE)
+```
 
 
