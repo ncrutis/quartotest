@@ -20,16 +20,26 @@ source("R_functions/descriptive_Table_func.R")
 
 
 endterms <- c("CURRENTLY UNTREATED",  "NO TTT", "NO CANCER TTT", "REMISSION")
-ongoingterms <- c("ONGOING", "CURRENTLY", "SINCE", "FROM", "TODAY", "UNTIL NOW")
-dates <- paste(c( "19\\d{2}|20\\d{2}|\\d{2}\\.\\d{2}\\.\\d{2,}|(?!=\\.)\\d{2}\\.2\\d{1}(?!\\d{2})|(?!=\\.)\\d{2}\\.9\\d{1}(?!\\d{2})"  ), collapse="|")
+ongoingterms <- c("ONGOING", "CURRENTLY", "SINCE", "FROM", "TODAY", "UNTIL NOW", "DEPUIS")
+dates <- paste(c( "\\d{1,2}\\.19\\d{2}|\\d{1,2}\\.20\\d{2}|19\\d{2}|20\\d{2}|\\d{2}\\.\\d{2}\\.\\d{2,}|(?!=\\.)\\d{2}\\.2\\d{1}(?!\\d{2})|(?!=\\.)\\d{2}\\.9\\d{1}(?!\\d{2})"  ), collapse="|")
 
-data <- clean_names(read_csv("derived_data/ImmunoVax_ATCcodes.csv")) %>% 
+data <- clean_names(read_csv("derived_data/ImmunoVax_ATCcodes.csv")) %>%
   group_by(ptid_4) %>%
   mutate(followup_st =min(as.Date(analysis_date, format= "%d/%b/%Y"))-60) %>%
    dplyr::select(1:4,22:30, 37:42) %>%
-  mutate(last_trt = str_extract_all(immunosuppressive_therapy, dates)) %>%
+  mutate(imm_ther_mod = str_replace_all(immunosuppressive_therapy,
+                                        c("Jan " = "01.",
+                                          "FÉVrier " = "02.",
+                                          "Mars " = "03.",
+                                          "March " = "03.",
+                                          "Mai " = "05.",
+                                          "August " = "08.",
+                                          "Novembre " = "11."
+                                          ))) %>%
+  mutate(last_trt = str_extract_all(imm_ther_mod, dates)) %>%
+
   unnest(cols= last_trt, keep_empty = TRUE) %>%
-  mutate(last_trt = parse_date_time(last_trt, c("dmy", "my", "Y")) ) %>%
+  mutate(last_trt = parse_date_time(last_trt, c("dmy", "mY", "my", "Y")) ) %>%
   group_by(ptid_4) %>%
   mutate(last_trt =max(last_trt)) %>%
   ungroup() %>%
@@ -49,7 +59,7 @@ data <- clean_names(read_csv("derived_data/ImmunoVax_ATCcodes.csv")) %>%
     currently_treated == "No" & is.na(last_trt)  ~ "No" ,
     is.na(currently_treated) & ptgroup == "CTO"  ~ "Yes"
     #is.na(currently_treated) & last_trt < year(followup_st) &
-    
+
   )) %>%
  #filter(is.na(currently_treated_new)) %>%
   unique()
@@ -73,6 +83,7 @@ Free Text Classifiers | Updated Treatment Classification|
 | last treatment date less than 30 days before first vaccine    |  Yes |
 | last treatment date more than 30 days before first vaccine  |  No |
 | Organ Transplant Group   |  Yes |
+| Hormonotherapy medications | No |
 
 
 
@@ -319,26 +330,55 @@ vax_resp_data <- clean_names(read_csv("derived_data/ImmunoVax_ATCcodes.csv")) %>
   mutate(visitct_ = as.numeric(factor(visit_time_point, levels=unique(visit_time_point)))) %>%
    filter(visitct_ == 1 & visit_time_point == "V3" |
            visitct_ == 2 & visit_time_point == "V4"|
-           visitct_ == 3 & visit_time_point == "V5") 
+           visitct_ == 3 & visit_time_point == "V5") %>%
+  filter(is.na(days_since_1st_infection) | as.numeric(days_since_1st_infection) < as.numeric(days_since_2nd_dose )) 
+
+
 
 
 
 meddata <- data %>%
-  dplyr::select(c(1, 19:22))
+  dplyr::select(c(1, 19:23))
 
 
 vax_resp_data <- left_join(vax_resp_data, meddata, by = "ptid_4")  %>%
   filter(!is.na(currently_treated_new)) %>% 
   filter(ptgroup != "CTL") %>%
   mutate(anal_date = as.Date(analysis_date, format= "%d/%b/%Y"),
-          med_cutoff = ymd(last_trt)+30) #%>%
+          med_cutoff = ymd(last_trt)+30) %>%
+    # mutate(TKI = case_when(grepl("L01E", atc_codelist) & currently_treated_new == "Yes" ~ "Yes",
+    #                        grepl("L01E", ema_codelist) & currently_treated_new == "Yes" ~ "Yes",
+    #                      grepl("L01E", ema_codelist) & currently_treated_new == "No" ~ "No",
+    #                      grepl("L01E", atc_codelist) & currently_treated_new == "No" ~ "No",
+    #                     !grepl("L01E", ema_codelist) | !grepl("L01E", atc_codelist)~ "No",
+    #                      is.na(ema_codelist) | is.na(atc_codelist)~ "No")) 
+  mutate(TKI = case_when(type_of_medication == "Tyrosine kinase inhibitor TKI" & currently_treated_new == "Yes" ~ "Yes",
+                         type_of_medication == "Tyrosine kinase inhibitor TKI" & currently_treated_new == "No" ~ "No",
+                         type_of_medication != "Tyrosine kinase inhibitor TKI" ~ "No",
+                         is.na(type_of_medication) ~ "No")) %>%
+    mutate(JKI = case_when(type_of_medication == "Janus kinase inhibitors" & currently_treated_new == "Yes" ~ "Yes",
+                         type_of_medication == "Janus kinase inhibitors" & currently_treated_new == "No" ~ "No",
+                         type_of_medication != "Janus kinase inhibitors" ~ "No",
+                         is.na(type_of_medication) ~ "No")) %>%
+      mutate(imm_mod= case_when(type_of_medication == "Immunomodulator drugs IMIDs" & currently_treated_new == "Yes" ~ "Yes",
+                         type_of_medication == "Immunomodulator drugs IMIDs" & currently_treated_new == "No" ~ "No",
+                         type_of_medication != "Immunomodulator drugs IMIDs" ~ "No",
+                         is.na(type_of_medication) ~ "No")) #%>%
+      # mutate(vegf= case_when(grepl("Beva", immunosuppressive_therapy) & currently_treated_new == "Yes" ~ "Yes",
+      #                    currently_treated_new == "No" ~ "No",
+      #                   !grepl("Beva", immunosuppressive_therapy)  ~ "No")) 
+      # 
   # mutate(currently_treated_new = case_when(is.na(last_trt) ~ currently_treated_new,
   #                                          anal_date  >= med_cutoff ~ "No", 
   #                                          anal_date  < med_cutoff ~ "Yes"
   #                                       ))
 
+test <- vax_resp_data %>% filter(cov2nw > 1000)
 
-
+t.test(vax_resp_data$cov2nw ~ vax_resp_data$TKI)
+t.test(vax_resp_data$cov2nw ~ vax_resp_data$JKI)
+t.test(vax_resp_data$cov2nw ~ vax_resp_data$imm_mod)
+#t.test(vax_resp_data$cov2nw ~ vax_resp_data$vegf)
 
 ttest_cov2nw  <- as.data.frame(cbind(t.test(vax_resp_data$cov2nw ~ vax_resp_data$currently_treated_new))) %>% 
   rownames_to_column() %>% 
@@ -359,7 +399,9 @@ tab<- rbind(ttest_cov2nw, ttest_cov2nd, ttest_cov2no) %>% mutate(temp = ifelse(r
          Untreated = ifelse(rowname != "p.value", parse_number(Unt), " "),
          Treated = ifelse(rowname != "p.value", parse_number(Tr), " "),
          p.value = ifelse(rowname == "p.value", V1, " ")) %>%
-  dplyr::select(3,6:8) 
+  dplyr::select(3,6:8) %>%
+  mutate(Untreated = ifelse(as.character(round(as.numeric(Untreated), digits = 2)) == "NA", " ",as.character(round(as.numeric(Untreated), digits = 2))) ,
+         Treated = round(as.numeric(Treated), digits = 2))
 
 
 knitr::kable(tab, digits = 3, row.names = NA,
@@ -404,27 +446,99 @@ tab<- rbind(ttest_cov2nw, ttest_cov2nd, ttest_cov2no) %>% mutate(temp = ifelse(r
 #   format.args = list(), escape = TRUE)
 ```
 
+
+
 ```{r}
 #| warning: false
 #| echo: false
 
-library(glmmTMB)
-library(DHARMa)
+ialtest <- vax_resp_data %>%
+  filter(ptgroup == "HEM") 
+
+
+ttest_cov2nw  <- as.data.frame(cbind(t.test(ialtest$cov2nw ~ ialtest$currently_treated_new))) %>% 
+  rownames_to_column() %>% 
+  mutate(Antibody= ifelse(rowname == "p.value", "Wild Type", " "))
+
+ttest_cov2no  <- as.data.frame(cbind(t.test(ialtest$cov2no ~ ialtest$currently_treated_new))) %>% 
+  rownames_to_column() %>% 
+  mutate(Antibody= ifelse(rowname == "p.value", "Omicron", " "))
+
+ttest_cov2nd  <- as.data.frame(cbind(t.test(ialtest$cov2nd ~ ialtest$currently_treated_new))) %>% 
+  rownames_to_column() %>% 
+  mutate(Antibody= ifelse(rowname == "p.value", "Delta", " "))
+
+tab<- rbind(ttest_cov2nw, ttest_cov2nd, ttest_cov2no) %>% mutate(temp = ifelse(rowname== "estimate", V1, "")) %>%
+  filter(rowname == "p.value" | rowname == "estimate") %>%
+  separate(temp, into= c("Unt", "Tr"),  sep = ",") %>%
+  mutate(
+         Untreated = ifelse(rowname != "p.value", parse_number(Unt), " "),
+         Treated = ifelse(rowname != "p.value", parse_number(Tr), " "),
+         p.value = ifelse(rowname == "p.value", V1, " ")) %>%
+  dplyr::select(3,6:8) 
+
+```
+
+
+
+```{r}
+#| warning: false
+#| echo: false
+
+hemtest <- vax_resp_data %>%
+  filter(ptgroup == "HEM") 
+
+
+ttest_cov2nw  <- as.data.frame(cbind(t.test(ialtest$cov2nw ~ ialtest$currently_treated_new))) %>% 
+  rownames_to_column() %>% 
+  mutate(Antibody= ifelse(rowname == "p.value", "Wild Type", " "))
+
+ttest_cov2no  <- as.data.frame(cbind(t.test(ialtest$cov2no ~ ialtest$currently_treated_new))) %>% 
+  rownames_to_column() %>% 
+  mutate(Antibody= ifelse(rowname == "p.value", "Omicron", " "))
+
+ttest_cov2nd  <- as.data.frame(cbind(t.test(ialtest$cov2nd ~ ialtest$currently_treated_new))) %>% 
+  rownames_to_column() %>% 
+  mutate(Antibody= ifelse(rowname == "p.value", "Delta", " "))
+
+tab<- rbind(ttest_cov2nw, ttest_cov2nd, ttest_cov2no) %>% mutate(temp = ifelse(rowname== "estimate", V1, "")) %>%
+  filter(rowname == "p.value" | rowname == "estimate") %>%
+  separate(temp, into= c("Unt", "Tr"),  sep = ",") %>%
+  mutate(
+         Untreated = ifelse(rowname != "p.value", parse_number(Unt), " "),
+         Treated = ifelse(rowname != "p.value", parse_number(Tr), " "),
+         p.value = ifelse(rowname == "p.value", V1, " ")) %>%
+  dplyr::select(3,6:8) 
+
+```
+
+```{r}
+#| warning: false
+#| echo: false
+
+# library(glmmTMB)
+# library(DHARMa)
 library(lme4)
 library(car)
 
+ # vax_resp_data <- vax_resp_data %>%
+ #   mutate(response = ifelse(cov2nw<1, 1, cov2nw)) %>%
+ #     mutate(response = ifelse(cov2nw>2430, 2430, cov2nw)) %>% filter(!is.na(days_since_2nd_dose))
+
  vax_resp_data <- vax_resp_data %>%
    mutate(response = ifelse(cov2nw<1, 1, cov2nw)) %>%
-     mutate(response = ifelse(cov2nw>2430, 2430, cov2nw)) %>% filter(!is.na(days_since_2nd_dose))
-# 
+     mutate(response = ifelse(cov2nw>2000, 2000, cov2nw)) %>% filter(!is.na(days_since_2nd_dose))
+
+ 
+ ggplot(vax_resp_data, aes(x = response)) + geom_density() + facet_wrap(currently_treated_new~ptgroup)
 #anova(lm(response ~ visit_time_point +  currently_treated_new +  ptgroup , data = vax_resp_data))
 
 
  
  
-model = lmer(response ~ days_since_2nd_dose +  currently_treated_new  + (1|ptgroup) + (1|ptid_4) , data = vax_resp_data)
+model = lmer(response ~ days_since_2nd_dose +  currently_treated_new  + (1|ptgroup) + (1|ptid_4), data = vax_resp_data)
 
-
+plot(model)
 
 
 summary(model)
@@ -437,10 +551,11 @@ library(ggplot2)
 # ggplot(vax_resp_data,aes(days_since_2nd_dose, response, col=ptgroup, group=interaction(group,ptid_4), shape=currently_treated_new)) + 
 #     geom_line(aes(y=fit), size=0.1)  +
 #     #geom_hline(yintercept=0, linetype="dashed") +
-#     theme_bw()  + facet_grid(~currently_treated_new) 
+#     tiale_bw()  + facet_grid(~currently_treated_new) 
 
-ggplot(vax_resp_data,aes(days_since_2nd_dose, response, col=currently_treated_new, group=interaction(ptgroup,ptid_4))) + 
+ggplot(vax_resp_data,aes(days_since_2nd_dose, response, col=currently_treated_new, group=interaction(ptid_4))) + 
     geom_line(aes(y=fit), size=0.1)  +
+  geom_point(size=0.2) +
     #geom_hline(yintercept=0, linetype="dashed") +
     theme_bw() 
 # model_splines<- glmmTMB(response ~ days_since_2nd_dose +  currently_treated_new +  (1|ptid_4) + (1|ptgroup),
@@ -458,5 +573,42 @@ ggplot(vax_resp_data,aes(days_since_2nd_dose, response, col=currently_treated_ne
 #outlier test: 
 #residuals: quantiles deviation detected
 
+ 
+model2 = lmer(response ~ days_since_2nd_dose +  currently_treated_new  + (1|ptid_4) , data = vax_resp_data)
 
+
+
+
+summary(model2)
+Anova(model2, test="F")
+confint(model2)
+
+plot(model2)
+
+vax_resp_data$fit2 <- predict(model2)
+
+ggplot(vax_resp_data,aes(days_since_2nd_dose, response, col=currently_treated_new, group=interaction(ptid_4))) + 
+    geom_line(aes(y=fit2), size=0.1)  +
+  geom_point(size=0.2) +
+    theme_bw() 
+
+
+
+
+# 
+# model3 = lmer(response ~ days_since_2nd_dose +  (1|currently_treated_new)  + (1|ptid_4) , data = vax_resp_data)
+# 
+# 
+# 
+# 
+# summary(model3)
+# Anova(model3, test="F")
+# confint(model3)
+# 
+# vax_resp_data$fit3 <- predict(model3)
+# 
+# ggplot(vax_resp_data,aes(days_since_2nd_dose, response, col=currently_treated_new, group=interaction(ptid_4))) + 
+#     geom_line(aes(y=fit3), size=0.1)  +
+#   geom_point(size=0.2) +
+#     theme_bw() 
 ```

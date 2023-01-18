@@ -120,8 +120,20 @@ ul.task-list li input[type="checkbox"] {
 <td style="text-align: left;">No</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;">last treatment date less than 30 days before first vaccine</td>
+<td style="text-align: left;">Yes</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">last treatment date more than 30 days before first vaccine</td>
+<td style="text-align: left;">No</td>
+</tr>
+<tr class="odd">
 <td style="text-align: left;">Organ Transplant Group</td>
 <td style="text-align: left;">Yes</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Hormonotherapy medications</td>
+<td style="text-align: left;">No</td>
 </tr>
 </tbody>
 </table>
@@ -186,37 +198,34 @@ ul.task-list li input[type="checkbox"] {
 <td style="text-align: left;">No</td>
 <td style="text-align: left;">193 (100.0)</td>
 <td style="text-align: left;">1 (2.9)</td>
-<td style="text-align: left;">44 (73.3)</td>
-<td style="text-align: left;">3 (15.0)</td>
-<td style="text-align: left;">207 (70.9)</td>
-<td style="text-align: left;">448 (74.7)</td>
+<td style="text-align: left;">61 (77.2)</td>
+<td style="text-align: left;">14 (31.8)</td>
+<td style="text-align: left;">328 (82.4)</td>
+<td style="text-align: left;">597 (79.7)</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"></td>
 <td style="text-align: left;">Yes</td>
 <td style="text-align: left;">0 (0.0)</td>
 <td style="text-align: left;">34 (97.1)</td>
-<td style="text-align: left;">16 (26.7)</td>
-<td style="text-align: left;">17 (85.0)</td>
-<td style="text-align: left;">85 (29.1)</td>
-<td style="text-align: left;">152 (25.3)</td>
+<td style="text-align: left;">18 (22.8)</td>
+<td style="text-align: left;">30 (68.2)</td>
+<td style="text-align: left;">70 (17.6)</td>
+<td style="text-align: left;">152 (20.3)</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"></td>
 <td style="text-align: left;">missing</td>
 <td style="text-align: left;">0</td>
 <td style="text-align: left;">0</td>
-<td style="text-align: left;">42</td>
-<td style="text-align: left;">78</td>
-<td style="text-align: left;">175</td>
-<td style="text-align: left;">295</td>
+<td style="text-align: left;">23</td>
+<td style="text-align: left;">54</td>
+<td style="text-align: left;">69</td>
+<td style="text-align: left;">146</td>
 </tr>
 </tbody>
 </table>
 </div>
-</div>
-<div class="cell">
-
 </div>
 <div class="cell">
 
@@ -238,6 +247,45 @@ ul.task-list li input[type="checkbox"] {
 </div>
 <p>Antibody Response Differences in Treated vs Untreated Immunocompromised Patients (No Controls) during first 6 months of follow up</p>
 <div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    Welch Two Sample t-test
+
+data:  vax_resp_data$cov2nw by vax_resp_data$TKI
+t = -3.3613, df = 5.0165, p-value = 0.01998
+alternative hypothesis: true difference in means between group No and group Yes is not equal to 0
+95 percent confidence interval:
+ -1664.1416  -222.6278
+sample estimates:
+ mean in group No mean in group Yes 
+         284.4153         1227.8000 </code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    Welch Two Sample t-test
+
+data:  vax_resp_data$cov2nw by vax_resp_data$JKI
+t = 22.842, df = 139.03, p-value &lt; 2.2e-16
+alternative hypothesis: true difference in means between group No and group Yes is not equal to 0
+95 percent confidence interval:
+ 256.7446 305.4031
+sample estimates:
+ mean in group No mean in group Yes 
+         289.9739            8.9000 </code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    Welch Two Sample t-test
+
+data:  vax_resp_data$cov2nw by vax_resp_data$imm_mod
+t = 8.1893, df = 16.543, p-value = 3.223e-07
+alternative hypothesis: true difference in means between group No and group Yes is not equal to 0
+95 percent confidence interval:
+ 164.7641 279.4482
+sample estimates:
+ mean in group No mean in group Yes 
+         291.5312           69.4250 </code></pre>
+</div>
 <div class="cell-output-display">
 <table class="table table-sm table-striped">
 <colgroup>
@@ -250,49 +298,171 @@ ul.task-list li input[type="checkbox"] {
 <tr class="header">
 <th style="text-align: left;">Antibody</th>
 <th style="text-align: left;">Untreated</th>
-<th style="text-align: left;">Treated</th>
+<th style="text-align: right;">Treated</th>
 <th style="text-align: left;">p.value</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">Wild Type</td>
-<td style="text-align: left;"></td>
-<td style="text-align: left;"></td>
-<td style="text-align: left;">0.0009669454</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">1.548807e-09</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"></td>
-<td style="text-align: left;">328.841459627329</td>
-<td style="text-align: left;">208.592086330935</td>
+<td style="text-align: left;">316.09</td>
+<td style="text-align: right;">153.38</td>
 <td style="text-align: left;"></td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Delta</td>
-<td style="text-align: left;"></td>
-<td style="text-align: left;"></td>
-<td style="text-align: left;">3.528303e-06</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">1.751404e-15</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"></td>
-<td style="text-align: left;">150.401863354037</td>
-<td style="text-align: left;">77.4388489208633</td>
+<td style="text-align: left;">140.77</td>
+<td style="text-align: right;">54.05</td>
 <td style="text-align: left;"></td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Omicron</td>
-<td style="text-align: left;"></td>
-<td style="text-align: left;"></td>
-<td style="text-align: left;">3.88097e-08</td>
+<td style="text-align: left;">NA</td>
+<td style="text-align: right;">NA</td>
+<td style="text-align: left;">2.869622e-17</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"></td>
-<td style="text-align: left;">61.107298136646</td>
-<td style="text-align: left;">28.0561151079137</td>
+<td style="text-align: left;">56.01</td>
+<td style="text-align: right;">20.84</td>
 <td style="text-align: left;"></td>
 </tr>
 </tbody>
 </table>
+</div>
+</div>
+<div class="cell">
+
+</div>
+<div class="cell">
+
+</div>
+<div class="cell">
+
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<p><img src="patient_groups_desc_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display">
+<p><img src="patient_groups_desc_files/figure-html/unnamed-chunk-14-2.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Linear mixed model fit by REML ['lmerMod']
+Formula: response ~ days_since_2nd_dose + currently_treated_new + (1 |  
+    ptgroup) + (1 | ptid_4)
+   Data: vax_resp_data
+
+REML criterion at convergence: 16489.1
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-2.8667 -0.4745 -0.1904  0.3573  5.9171 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ ptid_4   (Intercept) 74519    272.98  
+ ptgroup  (Intercept)  1590     39.88  
+ Residual             42378    205.86  
+Number of obs: 1170, groups:  ptid_4, 393; ptgroup, 4
+
+Fixed effects:
+                           Estimate Std. Error t value
+(Intercept)               496.05613   33.66928  14.733
+days_since_2nd_dose        -1.95203    0.09463 -20.627
+currently_treated_newYes -139.03272   44.82816  -3.101
+
+Correlation of Fixed Effects:
+            (Intr) dy__2_
+dys_snc_2n_ -0.291       
+crrntly_t_Y -0.386  0.003</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Analysis of Deviance Table (Type II Wald F tests with Kenward-Roger df)
+
+Response: response
+                             F Df Df.res    Pr(&gt;F)    
+days_since_2nd_dose   425.4762  1 779.04 &lt; 2.2e-16 ***
+currently_treated_new   7.4299  1  61.59  0.008342 ** 
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                               2.5 %     97.5 %
+.sig01                    251.166182 297.013799
+.sig02                      0.000000 100.134378
+.sigma                    195.913519 216.381656
+(Intercept)               431.181137 549.999143
+days_since_2nd_dose        -2.137685  -1.766516
+currently_treated_newYes -240.047185 -66.120012</code></pre>
+</div>
+<div class="cell-output-display">
+<p><img src="patient_groups_desc_files/figure-html/unnamed-chunk-14-3.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Linear mixed model fit by REML ['lmerMod']
+Formula: response ~ days_since_2nd_dose + currently_treated_new + (1 |  
+    ptid_4)
+   Data: vax_resp_data
+
+REML criterion at convergence: 16489.3
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-2.8512 -0.4761 -0.1925  0.3598  5.9327 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ ptid_4   (Intercept) 74940    273.8   
+ Residual             42377    205.9   
+Number of obs: 1170, groups:  ptid_4, 393
+
+Fixed effects:
+                           Estimate Std. Error t value
+(Intercept)               511.08138   19.16109  26.673
+days_since_2nd_dose        -1.95213    0.09463 -20.629
+currently_treated_newYes -160.50143   40.59003  -3.954
+
+Correlation of Fixed Effects:
+            (Intr) dy__2_
+dys_snc_2n_ -0.509       
+crrntly_t_Y -0.351  0.002</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Analysis of Deviance Table (Type II Wald F tests with Kenward-Roger df)
+
+Response: response
+                            F Df Df.res    Pr(&gt;F)    
+days_since_2nd_dose   425.528  1 779.04 &lt; 2.2e-16 ***
+currently_treated_new  15.636  1 391.26 9.115e-05 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                               2.5 %     97.5 %
+.sig01                    251.166157 297.013801
+.sigma                    195.913508 216.381660
+(Intercept)               473.550162 548.612879
+days_since_2nd_dose        -2.137685  -1.766516
+currently_treated_newYes -240.047273 -80.954867</code></pre>
+</div>
+<div class="cell-output-display">
+<p><img src="patient_groups_desc_files/figure-html/unnamed-chunk-14-4.png" class="img-fluid" width="672"></p>
+</div>
+<div class="cell-output-display">
+<p><img src="patient_groups_desc_files/figure-html/unnamed-chunk-14-5.png" class="img-fluid" width="672"></p>
 </div>
 </div>
 
